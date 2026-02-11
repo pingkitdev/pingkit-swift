@@ -17,7 +17,6 @@ struct FeedbackView: View {
     @State private var isSubmitting = false
     @State private var showSuccess = false
     @State private var errorMessage: String?
-    @State private var showMetadataInfo = false
 
     private var theme: PingKitTheme { PingKit.theme }
 
@@ -37,165 +36,317 @@ struct FeedbackView: View {
         return textValid && emailValid && !isSubmitting
     }
 
+    private var imageSizeDescription: String? {
+        guard let imageData else { return nil }
+        let bytes = imageData.count
+        if bytes < 1024 {
+            return "\(bytes) B"
+        } else if bytes < 1024 * 1024 {
+            return "\(bytes / 1024) KB"
+        } else {
+            let mb = Double(bytes) / (1024 * 1024)
+            return String(format: "%.1f MB", mb)
+        }
+    }
+
+    private let borderColor = Color.primary.opacity(0.15)
+    private let errorColor = Color(red: 0.9, green: 0.3, blue: 0.3)
+    private let successColor = Color(red: 0.3, green: 0.8, blue: 0.5)
+
     var body: some View {
         NavigationStack {
-            ScrollView {
-                VStack(alignment: .leading, spacing: 16) {
-                    // Type picker
-                    if !typeOptions.isEmpty {
-                        VStack(alignment: .leading, spacing: 6) {
-                            Text("Category")
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
+            VStack(spacing: 0) {
+                // Scrollable content area — type picker + text editor
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 16) {
+                        // Type picker — pill toggle buttons
+                        if !typeOptions.isEmpty {
+                            VStack(alignment: .leading, spacing: 8) {
+                                Text("CATEGORY")
+                                    .font(.caption2)
+                                    .fontWeight(.medium)
+                                    .foregroundStyle(.secondary)
+                                    .kerning(0.8)
 
-                            Picker("Category", selection: $selectedType) {
-                                Text("Select...").tag("")
-                                ForEach(typeOptions, id: \.self) { option in
-                                    Text(option).tag(option)
+                                HStack(spacing: 8) {
+                                    ForEach(typeOptions, id: \.self) { option in
+                                        Button {
+                                            withAnimation(.easeInOut(duration: 0.15)) {
+                                                selectedType = selectedType == option ? "" : option
+                                            }
+                                        } label: {
+                                            Text(option)
+                                                .font(.subheadline)
+                                                .fontWeight(.medium)
+                                                .padding(.horizontal, 14)
+                                                .padding(.vertical, 7)
+                                                .background(
+                                                    selectedType == option
+                                                        ? Color.primary.opacity(0.08)
+                                                        : Color.clear
+                                                )
+                                                .foregroundStyle(
+                                                    selectedType == option
+                                                        ? Color.primary
+                                                        : Color.secondary
+                                                )
+                                                .clipShape(RoundedRectangle(cornerRadius: 6))
+                                                .overlay(
+                                                    RoundedRectangle(cornerRadius: 6)
+                                                        .strokeBorder(
+                                                            selectedType == option
+                                                                ? Color.primary.opacity(0.3)
+                                                                : borderColor,
+                                                            lineWidth: 1
+                                                        )
+                                                )
+                                        }
+                                        .buttonStyle(.plain)
+                                    }
                                 }
                             }
-                            .pickerStyle(.segmented)
+                        }
+
+                        // Text editor — border-based input
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text("FEEDBACK")
+                                .font(.caption2)
+                                .fontWeight(.medium)
+                                .foregroundStyle(.secondary)
+                                .kerning(0.8)
+
+                            TextEditor(text: $feedbackText)
+                                .scrollContentBackground(.hidden)
+                                .frame(minHeight: 140)
+                                .padding(10)
+                                .background(Color.clear)
+                                .clipShape(RoundedRectangle(cornerRadius: 8))
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 8)
+                                        .strokeBorder(borderColor, lineWidth: 1)
+                                )
+                                .overlay(alignment: .topLeading) {
+                                    if feedbackText.isEmpty {
+                                        Text("What's on your mind?")
+                                            .foregroundStyle(Color.secondary.opacity(0.7))
+                                            .padding(.horizontal, 15)
+                                            .padding(.vertical, 18)
+                                            .allowsHitTesting(false)
+                                    }
+                                }
+
+                            Text("\(feedbackText.count)/5000")
+                                .font(.caption2)
+                                .foregroundStyle(Color.secondary.opacity(0.7))
+                                .frame(maxWidth: .infinity, alignment: .trailing)
+                        }
+
+                        // Error banner
+                        if let errorMessage {
+                            HStack(spacing: 8) {
+                                Image(systemName: "exclamationmark.circle")
+                                    .foregroundStyle(errorColor)
+                                Text(errorMessage)
+                                    .font(.caption)
+                                    .foregroundStyle(errorColor)
+                            }
+                            .padding(12)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .background(errorColor.opacity(0.08))
+                            .clipShape(RoundedRectangle(cornerRadius: 8))
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 8)
+                                    .strokeBorder(errorColor.opacity(0.3), lineWidth: 1)
+                            )
+                        }
+
+                        // Success banner
+                        if showSuccess {
+                            HStack(spacing: 8) {
+                                Image(systemName: "checkmark.circle.fill")
+                                    .foregroundStyle(successColor)
+                                Text("Feedback sent! Thank you.")
+                                    .font(.caption)
+                                    .foregroundStyle(successColor)
+                            }
+                            .padding(12)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .background(successColor.opacity(0.08))
+                            .clipShape(RoundedRectangle(cornerRadius: 8))
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 8)
+                                    .strokeBorder(successColor.opacity(0.3), lineWidth: 1)
+                            )
                         }
                     }
+                    .padding(.horizontal)
+                    .padding(.top, 16)
+                    .padding(.bottom, 8)
+                }
 
-                    // Text field
-                    VStack(alignment: .leading, spacing: 6) {
-                        Text("Feedback")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-
-                        TextEditor(text: $feedbackText)
-                            .frame(minHeight: 120)
-                            .padding(8)
-                            .background(Color(uiColor: .secondarySystemBackground))
-                            .clipShape(RoundedRectangle(cornerRadius: 10))
-                            .overlay(alignment: .topLeading) {
-                                if feedbackText.isEmpty {
-                                    Text("What's on your mind?")
-                                        .foregroundStyle(.tertiary)
-                                        .padding(.horizontal, 13)
-                                        .padding(.vertical, 16)
-                                        .allowsHitTesting(false)
-                                }
-                            }
-
-                        Text("\(feedbackText.count)/5000")
-                            .font(.caption2)
-                            .foregroundStyle(.tertiary)
-                            .frame(maxWidth: .infinity, alignment: .trailing)
-                    }
+                // Fixed footer
+                VStack(spacing: 0) {
+                    divider
 
                     // Email field
                     if emailMode != nil {
-                        VStack(alignment: .leading, spacing: 6) {
-                            HStack {
-                                Text("Email")
-                                    .font(.caption)
+                        VStack(alignment: .leading, spacing: 8) {
+                            HStack(spacing: 2) {
+                                Text("EMAIL")
+                                    .font(.caption2)
+                                    .fontWeight(.medium)
                                     .foregroundStyle(.secondary)
+                                    .kerning(0.8)
                                 if case .required = emailMode {
-                                    Text("Required")
-                                        .font(.caption2)
-                                        .foregroundStyle(theme.accentColor)
+                                    Text("*")
+                                        .font(.caption)
+                                        .foregroundStyle(Color.secondary)
                                 }
                             }
 
-                            TextField("Email", text: $emailText)
+                            TextField("you@example.com", text: $emailText)
                                 .keyboardType(.emailAddress)
                                 .textContentType(.emailAddress)
                                 .autocorrectionDisabled()
                                 .textInputAutocapitalization(.never)
-                                .padding(12)
-                                .background(Color(uiColor: .secondarySystemBackground))
-                                .clipShape(RoundedRectangle(cornerRadius: 10))
+                                .font(.subheadline)
+                                .padding(10)
+                                .background(Color.clear)
+                                .clipShape(RoundedRectangle(cornerRadius: 8))
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 8)
+                                        .strokeBorder(borderColor, lineWidth: 1)
+                                )
                         }
+                        .padding(.horizontal)
+                        .padding(.top, 12)
+                        .padding(.bottom, 4)
+
+                        divider
                     }
 
-                    // Screenshot
-                    VStack(alignment: .leading, spacing: 8) {
+                    // Screenshot attachment zone
+                    Group {
                         if let imageThumbnail {
-                            HStack {
+                            // Attached state
+                            HStack(spacing: 12) {
                                 imageThumbnail
                                     .resizable()
-                                    .scaledToFit()
-                                    .frame(height: 80)
-                                    .clipShape(RoundedRectangle(cornerRadius: 8))
+                                    .scaledToFill()
+                                    .frame(width: 56, height: 56)
+                                    .clipShape(RoundedRectangle(cornerRadius: 6))
+                                    .overlay(
+                                        RoundedRectangle(cornerRadius: 6)
+                                            .strokeBorder(borderColor, lineWidth: 1)
+                                    )
 
-                                Button(role: .destructive) {
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text("Screenshot attached")
+                                        .font(.subheadline)
+                                        .foregroundStyle(.primary)
+                                    if let size = imageSizeDescription {
+                                        Text(size)
+                                            .font(.caption2)
+                                            .foregroundStyle(.secondary)
+                                    }
+                                }
+
+                                Spacer()
+
+                                Button {
                                     selectedPhoto = nil
                                     imageData = nil
                                     self.imageThumbnail = nil
                                 } label: {
-                                    Image(systemName: "xmark.circle.fill")
+                                    Image(systemName: "xmark")
+                                        .font(.caption)
+                                        .fontWeight(.medium)
                                         .foregroundStyle(.secondary)
+                                        .frame(width: 28, height: 28)
+                                        .background(Color.primary.opacity(0.06))
+                                        .clipShape(Circle())
                                 }
+                                .buttonStyle(.plain)
+                            }
+                            .padding(.horizontal)
+                            .padding(.vertical, 12)
+                        } else {
+                            // Empty state — dashed attachment zone
+                            PhotosPicker(
+                                selection: $selectedPhoto,
+                                matching: .images,
+                                photoLibrary: .shared()
+                            ) {
+                                HStack(spacing: 10) {
+                                    Image(systemName: "camera")
+                                        .font(.subheadline)
+                                        .foregroundStyle(.secondary)
+                                    Text("Attach screenshot")
+                                        .font(.subheadline)
+                                        .foregroundStyle(.secondary)
+                                    Spacer()
+                                    Image(systemName: "plus")
+                                        .font(.caption)
+                                        .fontWeight(.medium)
+                                        .foregroundStyle(Color.secondary.opacity(0.7))
+                                }
+                                .padding(.horizontal, 14)
+                                .padding(.vertical, 12)
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 8)
+                                        .strokeBorder(
+                                            style: StrokeStyle(lineWidth: 1, dash: [6, 4])
+                                        )
+                                        .foregroundStyle(borderColor)
+                                )
+                            }
+                            .padding(.horizontal)
+                            .padding(.vertical, 12)
+                        }
+                    }
+
+                    divider
+
+                    // Metadata info line
+                    HStack(spacing: 5) {
+                        Image(systemName: "shield")
+                            .font(.caption2)
+                        Text("Device info is automatically attached")
+                            .font(.caption2)
+                    }
+                    .foregroundStyle(Color.secondary.opacity(0.7))
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 10)
+
+                    divider
+
+                    // Send button — full width
+                    Button {
+                        Task { await submitFeedback() }
+                    } label: {
+                        Group {
+                            if isSubmitting {
+                                ProgressView()
+                                    .tint(Color(uiColor: .systemBackground))
+                            } else {
+                                Text("Send Feedback")
+                                    .font(.subheadline)
+                                    .fontWeight(.semibold)
                             }
                         }
-
-                        PhotosPicker(
-                            selection: $selectedPhoto,
-                            matching: .images,
-                            photoLibrary: .shared()
-                        ) {
-                            Label(
-                                imageData == nil ? "Attach Screenshot" : "Change Screenshot",
-                                systemImage: "photo"
-                            )
-                            .font(.subheadline)
-                        }
-                    }
-
-                    // Metadata info
-                    Button {
-                        withAnimation { showMetadataInfo.toggle() }
-                    } label: {
-                        HStack(spacing: 4) {
-                            Image(systemName: "info.circle")
-                            Text("Device info will be attached")
-                        }
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                    }
-
-                    if showMetadataInfo {
-                        VStack(alignment: .leading, spacing: 4) {
-                            metadataRow("Device", value: "model & OS version")
-                            metadataRow("App", value: "version & build number")
-                            metadataRow("Locale", value: "language & region")
-                            metadataRow("Timezone", value: "current timezone")
-                        }
-                        .font(.caption2)
-                        .foregroundStyle(.secondary)
-                        .padding(12)
-                        .background(Color(uiColor: .tertiarySystemBackground))
-                        .clipShape(RoundedRectangle(cornerRadius: 8))
-                    }
-
-                    // Error message
-                    if let errorMessage {
-                        Text(errorMessage)
-                            .font(.caption)
-                            .foregroundStyle(.red)
-                            .padding(8)
-                            .frame(maxWidth: .infinity)
-                            .background(Color.red.opacity(0.1))
-                            .clipShape(RoundedRectangle(cornerRadius: 8))
-                    }
-
-                    // Success message
-                    if showSuccess {
-                        HStack {
-                            Image(systemName: "checkmark.circle.fill")
-                                .foregroundStyle(.green)
-                            Text("Feedback sent! Thank you.")
-                                .font(.subheadline)
-                        }
-                        .padding(12)
                         .frame(maxWidth: .infinity)
-                        .background(Color.green.opacity(0.1))
-                        .clipShape(RoundedRectangle(cornerRadius: 8))
+                        .frame(height: 44)
+                        .foregroundStyle(Color(uiColor: .systemBackground))
+                        .background(Color.primary)
+                        .clipShape(RoundedRectangle(cornerRadius: 10))
                     }
+                    .disabled(!canSubmit)
+                    .opacity(canSubmit ? 1 : 0.4)
+                    .padding(.horizontal)
+                    .padding(.top, 10)
+                    .padding(.bottom, 16)
                 }
-                .padding()
+                .background(theme.backgroundColor)
             }
             .background(theme.backgroundColor)
             .navigationTitle("Feedback")
@@ -203,20 +354,6 @@ struct FeedbackView: View {
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cancel") { dismiss() }
-                }
-                ToolbarItem(placement: .confirmationAction) {
-                    Button {
-                        Task { await submitFeedback() }
-                    } label: {
-                        if isSubmitting {
-                            ProgressView()
-                        } else {
-                            Text("Send")
-                                .bold()
-                        }
-                    }
-                    .disabled(!canSubmit)
-                    .tint(theme.accentColor)
                 }
             }
             .onChange(of: selectedPhoto) { newValue in
@@ -228,6 +365,14 @@ struct FeedbackView: View {
                 }
             }
         }
+    }
+
+    // MARK: - UI Components
+
+    private var divider: some View {
+        Rectangle()
+            .fill(Color.primary.opacity(0.1))
+            .frame(height: 1)
     }
 
     // MARK: - Actions
@@ -287,17 +432,6 @@ struct FeedbackView: View {
         imageData = data
         if let uiImage = UIImage(data: data) {
             imageThumbnail = Image(uiImage: uiImage)
-        }
-    }
-
-    // MARK: - Helpers
-
-    private func metadataRow(_ label: String, value: String) -> some View {
-        HStack {
-            Text(label)
-                .fontWeight(.medium)
-            Spacer()
-            Text(value)
         }
     }
 }
