@@ -98,7 +98,8 @@ public enum PingKit {
         image: Data? = nil,
         email: String? = nil,
         type: String? = nil,
-        metadata: [String: String]? = nil
+        metadata: [String: String]? = nil,
+        includeDeviceInfo: Bool = true
     ) async throws -> FeedbackResult {
         guard let apiKey else {
             throw PingKitError.notConfigured
@@ -113,7 +114,7 @@ public enum PingKit {
         }
 
         // Collect device metadata
-        let deviceMetadata = MetadataCollector.collect()
+        let deviceMetadata: DeviceMetadata? = includeDeviceInfo ? MetadataCollector.collect() : nil
 
         // Build custom metadata with reserved keys
         var custom = metadata ?? [:]
