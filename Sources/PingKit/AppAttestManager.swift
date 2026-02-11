@@ -4,6 +4,7 @@ import CryptoKit
 
 actor AppAttestManager {
     private var keyId: String?
+    private var isAttested = false
     private let service = DCAppAttestService.shared
 
     var isSupported: Bool {
@@ -16,6 +17,8 @@ actor AppAttestManager {
         // Check Keychain for existing key ID
         if let existingKeyId = KeychainHelper.load(key: "pingkit_attest_key_id") {
             keyId = existingKeyId
+            // If we have a stored key ID, it was attested in a previous session
+            isAttested = KeychainHelper.load(key: "pingkit_attest_completed") != nil
             return
         }
 
@@ -27,6 +30,14 @@ actor AppAttestManager {
 
     func generateAssertion(for bodyData: Data) async throws -> (assertion: String, keyId: String)? {
         guard service.isSupported, let keyId else { return nil }
+
+        // Attest the key if not yet attested
+        if !isAttested {
+            let attestHash = Data(SHA256.hash(data: Data("pingkit-attest".utf8)))
+            _ = try await service.attestKey(keyId, clientDataHash: attestHash)
+            isAttested = true
+            KeychainHelper.save(key: "pingkit_attest_completed", value: "true")
+        }
 
         let hash = SHA256.hash(data: bodyData)
         let clientDataHash = Data(hash)

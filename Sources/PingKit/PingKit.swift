@@ -130,10 +130,13 @@ public enum PingKit {
         var attestAssertion: String?
         var attestKeyId: String?
         if options.enableAppAttest {
-            // Build the body data for nonce computation
-            if let result = try? await attestManager.generateAssertion(for: Data(trimmedText.utf8)) {
-                attestAssertion = result.assertion
-                attestKeyId = result.keyId
+            do {
+                if let result = try await attestManager.generateAssertion(for: Data(trimmedText.utf8)) {
+                    attestAssertion = result.assertion
+                    attestKeyId = result.keyId
+                }
+            } catch {
+                print("[PingKit] App Attest assertion failed: \(error.localizedDescription)")
             }
         }
 
