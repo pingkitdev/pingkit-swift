@@ -4,7 +4,7 @@ enum APIClient {
     static func submitFeedback(
         text: String,
         imageData: Data?,
-        metadata: DeviceMetadata,
+        metadata: DeviceMetadata?,
         customMetadata: [String: String]?,
         endpoint: String,
         apiKey: String,
@@ -15,13 +15,16 @@ enum APIClient {
 
         var jsonBody: [String: Any] = [
             "text": text,
-            "device_model": metadata.deviceModel,
-            "os_version": metadata.osVersion,
-            "app_version": metadata.appVersion,
-            "app_build": metadata.appBuild,
-            "locale": metadata.locale,
-            "timezone": metadata.timezone,
         ]
+
+        if let metadata {
+            jsonBody["device_model"] = metadata.deviceModel
+            jsonBody["os_version"] = metadata.osVersion
+            jsonBody["app_version"] = metadata.appVersion
+            jsonBody["app_build"] = metadata.appBuild
+            jsonBody["locale"] = metadata.locale
+            jsonBody["timezone"] = metadata.timezone
+        }
 
         if let customMetadata, !customMetadata.isEmpty {
             jsonBody["custom_metadata"] = customMetadata

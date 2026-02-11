@@ -14,6 +14,7 @@ struct FeedbackView: View {
     @State private var selectedPhoto: PhotosPickerItem?
     @State private var imageData: Data?
     @State private var imageThumbnail: Image?
+    @State private var includeDeviceInfo = true
     @State private var isSubmitting = false
     @State private var showSuccess = false
     @State private var errorMessage: String?
@@ -36,6 +37,11 @@ struct FeedbackView: View {
         return textValid && emailValid && !isSubmitting
     }
 
+    @MainActor
+    private var deviceMetadata: DeviceMetadata {
+        MetadataCollector.collect()
+    }
+
     private var imageSizeDescription: String? {
         guard let imageData else { return nil }
         let bytes = imageData.count
@@ -49,306 +55,163 @@ struct FeedbackView: View {
         }
     }
 
-    private let borderColor = Color.primary.opacity(0.15)
-    private let errorColor = Color(red: 0.9, green: 0.3, blue: 0.3)
-    private let successColor = Color(red: 0.3, green: 0.8, blue: 0.5)
-
     var body: some View {
         NavigationStack {
-            VStack(spacing: 0) {
-                // Scrollable content area — type picker + text editor
-                ScrollView {
-                    VStack(alignment: .leading, spacing: 16) {
-                        // Type picker — pill toggle buttons
-                        if !typeOptions.isEmpty {
-                            VStack(alignment: .leading, spacing: 8) {
-                                Text("CATEGORY")
-                                    .font(.caption2)
-                                    .fontWeight(.medium)
-                                    .foregroundStyle(.secondary)
-                                    .kerning(0.8)
-
-                                HStack(spacing: 8) {
-                                    ForEach(typeOptions, id: \.self) { option in
-                                        Button {
-                                            withAnimation(.easeInOut(duration: 0.15)) {
-                                                selectedType = selectedType == option ? "" : option
-                                            }
-                                        } label: {
-                                            Text(option)
-                                                .font(.subheadline)
-                                                .fontWeight(.medium)
-                                                .padding(.horizontal, 14)
-                                                .padding(.vertical, 7)
-                                                .background(
-                                                    selectedType == option
-                                                        ? Color.primary.opacity(0.08)
-                                                        : Color.clear
-                                                )
-                                                .foregroundStyle(
-                                                    selectedType == option
-                                                        ? Color.primary
-                                                        : Color.secondary
-                                                )
-                                                .clipShape(RoundedRectangle(cornerRadius: 6))
-                                                .overlay(
-                                                    RoundedRectangle(cornerRadius: 6)
-                                                        .strokeBorder(
-                                                            selectedType == option
-                                                                ? Color.primary.opacity(0.3)
-                                                                : borderColor,
-                                                            lineWidth: 1
-                                                        )
-                                                )
-                                        }
-                                        .buttonStyle(.plain)
-                                    }
-                                }
+            Form {
+                // Type picker
+                if !typeOptions.isEmpty {
+                    Section {
+                        Picker("Category", selection: $selectedType) {
+                            Text("None").tag("")
+                            ForEach(typeOptions, id: \.self) { option in
+                                Text(option).tag(option)
                             }
-                        }
-
-                        // Text editor — border-based input
-                        VStack(alignment: .leading, spacing: 8) {
-                            Text("FEEDBACK")
-                                .font(.caption2)
-                                .fontWeight(.medium)
-                                .foregroundStyle(.secondary)
-                                .kerning(0.8)
-
-                            TextEditor(text: $feedbackText)
-                                .scrollContentBackground(.hidden)
-                                .frame(minHeight: 140)
-                                .padding(10)
-                                .background(Color.clear)
-                                .clipShape(RoundedRectangle(cornerRadius: 8))
-                                .overlay(
-                                    RoundedRectangle(cornerRadius: 8)
-                                        .strokeBorder(borderColor, lineWidth: 1)
-                                )
-                                .overlay(alignment: .topLeading) {
-                                    if feedbackText.isEmpty {
-                                        Text("What's on your mind?")
-                                            .foregroundStyle(Color.secondary.opacity(0.7))
-                                            .padding(.horizontal, 15)
-                                            .padding(.vertical, 18)
-                                            .allowsHitTesting(false)
-                                    }
-                                }
-
-                            Text("\(feedbackText.count)/5000")
-                                .font(.caption2)
-                                .foregroundStyle(Color.secondary.opacity(0.7))
-                                .frame(maxWidth: .infinity, alignment: .trailing)
-                        }
-
-                        // Error banner
-                        if let errorMessage {
-                            HStack(spacing: 8) {
-                                Image(systemName: "exclamationmark.circle")
-                                    .foregroundStyle(errorColor)
-                                Text(errorMessage)
-                                    .font(.caption)
-                                    .foregroundStyle(errorColor)
-                            }
-                            .padding(12)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                            .background(errorColor.opacity(0.08))
-                            .clipShape(RoundedRectangle(cornerRadius: 8))
-                            .overlay(
-                                RoundedRectangle(cornerRadius: 8)
-                                    .strokeBorder(errorColor.opacity(0.3), lineWidth: 1)
-                            )
-                        }
-
-                        // Success banner
-                        if showSuccess {
-                            HStack(spacing: 8) {
-                                Image(systemName: "checkmark.circle.fill")
-                                    .foregroundStyle(successColor)
-                                Text("Feedback sent! Thank you.")
-                                    .font(.caption)
-                                    .foregroundStyle(successColor)
-                            }
-                            .padding(12)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                            .background(successColor.opacity(0.08))
-                            .clipShape(RoundedRectangle(cornerRadius: 8))
-                            .overlay(
-                                RoundedRectangle(cornerRadius: 8)
-                                    .strokeBorder(successColor.opacity(0.3), lineWidth: 1)
-                            )
                         }
                     }
-                    .padding(.horizontal)
-                    .padding(.top, 16)
-                    .padding(.bottom, 8)
                 }
 
-                // Fixed footer
-                VStack(spacing: 0) {
-                    divider
+                // Feedback text
+                Section {
+                    ZStack(alignment: .topLeading) {
+                        if feedbackText.isEmpty {
+                            Text("What's on your mind?")
+                                .foregroundStyle(.tertiary)
+                                .padding(.top, 8)
+                        }
+                        TextEditor(text: $feedbackText)
+                            .frame(minHeight: 150)
+                    }
+                } header: {
+                    Text("Feedback")
+                } footer: {
+                    Text("\(feedbackText.count)/5000")
+                        .frame(maxWidth: .infinity, alignment: .trailing)
+                }
 
-                    // Email field
-                    if emailMode != nil {
-                        VStack(alignment: .leading, spacing: 8) {
-                            HStack(spacing: 2) {
-                                Text("EMAIL")
-                                    .font(.caption2)
-                                    .fontWeight(.medium)
-                                    .foregroundStyle(.secondary)
-                                    .kerning(0.8)
-                                if case .required = emailMode {
-                                    Text("*")
-                                        .font(.caption)
-                                        .foregroundStyle(Color.secondary)
-                                }
+                // Email
+                if emailMode != nil {
+                    Section {
+                        TextField("you@example.com", text: $emailText)
+                            .keyboardType(.emailAddress)
+                            .textContentType(.emailAddress)
+                            .autocorrectionDisabled()
+                            .textInputAutocapitalization(.never)
+                    } header: {
+                        HStack(spacing: 2) {
+                            Text("Email")
+                            if case .required = emailMode {
+                                Text("(required)")
                             }
+                        }
+                    }
+                }
 
-                            TextField("you@example.com", text: $emailText)
-                                .keyboardType(.emailAddress)
-                                .textContentType(.emailAddress)
-                                .autocorrectionDisabled()
-                                .textInputAutocapitalization(.never)
-                                .font(.subheadline)
-                                .padding(10)
-                                .background(Color.clear)
+                // Screenshot
+                Section {
+                    if let imageThumbnail {
+                        HStack(spacing: 12) {
+                            imageThumbnail
+                                .resizable()
+                                .scaledToFill()
+                                .frame(width: 60, height: 60)
                                 .clipShape(RoundedRectangle(cornerRadius: 8))
-                                .overlay(
-                                    RoundedRectangle(cornerRadius: 8)
-                                        .strokeBorder(borderColor, lineWidth: 1)
-                                )
-                        }
-                        .padding(.horizontal)
-                        .padding(.top, 12)
-                        .padding(.bottom, 4)
 
-                        divider
-                    }
-
-                    // Screenshot attachment zone
-                    Group {
-                        if let imageThumbnail {
-                            // Attached state
-                            HStack(spacing: 12) {
-                                imageThumbnail
-                                    .resizable()
-                                    .scaledToFill()
-                                    .frame(width: 56, height: 56)
-                                    .clipShape(RoundedRectangle(cornerRadius: 6))
-                                    .overlay(
-                                        RoundedRectangle(cornerRadius: 6)
-                                            .strokeBorder(borderColor, lineWidth: 1)
-                                    )
-
-                                VStack(alignment: .leading, spacing: 2) {
-                                    Text("Screenshot attached")
-                                        .font(.subheadline)
-                                        .foregroundStyle(.primary)
-                                    if let size = imageSizeDescription {
-                                        Text(size)
-                                            .font(.caption2)
-                                            .foregroundStyle(.secondary)
-                                    }
-                                }
-
-                                Spacer()
-
-                                Button {
-                                    selectedPhoto = nil
-                                    imageData = nil
-                                    self.imageThumbnail = nil
-                                } label: {
-                                    Image(systemName: "xmark")
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text("Screenshot")
+                                    .font(.body)
+                                if let size = imageSizeDescription {
+                                    Text(size)
                                         .font(.caption)
-                                        .fontWeight(.medium)
                                         .foregroundStyle(.secondary)
-                                        .frame(width: 28, height: 28)
-                                        .background(Color.primary.opacity(0.06))
-                                        .clipShape(Circle())
                                 }
-                                .buttonStyle(.plain)
                             }
-                            .padding(.horizontal)
-                            .padding(.vertical, 12)
-                        } else {
-                            // Empty state — dashed attachment zone
-                            PhotosPicker(
-                                selection: $selectedPhoto,
-                                matching: .images,
-                                photoLibrary: .shared()
-                            ) {
-                                HStack(spacing: 10) {
-                                    Image(systemName: "camera")
-                                        .font(.subheadline)
-                                        .foregroundStyle(.secondary)
-                                    Text("Attach screenshot")
-                                        .font(.subheadline)
-                                        .foregroundStyle(.secondary)
-                                    Spacer()
-                                    Image(systemName: "plus")
-                                        .font(.caption)
-                                        .fontWeight(.medium)
-                                        .foregroundStyle(Color.secondary.opacity(0.7))
-                                }
-                                .padding(.horizontal, 14)
-                                .padding(.vertical, 12)
-                                .overlay(
-                                    RoundedRectangle(cornerRadius: 8)
-                                        .strokeBorder(
-                                            style: StrokeStyle(lineWidth: 1, dash: [6, 4])
-                                        )
-                                        .foregroundStyle(borderColor)
-                                )
+
+                            Spacer()
+
+                            Button(role: .destructive) {
+                                selectedPhoto = nil
+                                imageData = nil
+                                self.imageThumbnail = nil
+                            } label: {
+                                Image(systemName: "trash")
+                                    .font(.body)
                             }
-                            .padding(.horizontal)
-                            .padding(.vertical, 12)
                         }
                     }
 
-                    divider
-
-                    // Metadata info line
-                    HStack(spacing: 5) {
-                        Image(systemName: "shield")
-                            .font(.caption2)
-                        Text("Device info is automatically attached")
-                            .font(.caption2)
+                    PhotosPicker(
+                        selection: $selectedPhoto,
+                        matching: .images,
+                        photoLibrary: .shared()
+                    ) {
+                        Label(
+                            imageData == nil ? "Attach Screenshot" : "Change Screenshot",
+                            systemImage: "photo"
+                        )
                     }
-                    .foregroundStyle(Color.secondary.opacity(0.7))
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 10)
+                }
 
-                    divider
+                // Error
+                if let errorMessage {
+                    Section {
+                        Label {
+                            Text(errorMessage)
+                        } icon: {
+                            Image(systemName: "exclamationmark.triangle.fill")
+                                .foregroundStyle(.red)
+                        }
+                    }
+                }
 
-                    // Send button — full width
+                // Success
+                if showSuccess {
+                    Section {
+                        Label {
+                            Text("Feedback sent! Thank you.")
+                        } icon: {
+                            Image(systemName: "checkmark.circle.fill")
+                                .foregroundStyle(.green)
+                        }
+                    }
+                }
+
+                // Device info
+                Section {
+                    Toggle("Include Device Info", isOn: $includeDeviceInfo)
+
+                    if includeDeviceInfo {
+                        DisclosureGroup("Data collected") {
+                            DeviceInfoRow(label: "Device", value: deviceMetadata.deviceModel)
+                            DeviceInfoRow(label: "OS", value: "iOS \(deviceMetadata.osVersion)")
+                            DeviceInfoRow(label: "App Version", value: "\(deviceMetadata.appVersion) (\(deviceMetadata.appBuild))")
+                            DeviceInfoRow(label: "Locale", value: deviceMetadata.locale)
+                            DeviceInfoRow(label: "Timezone", value: deviceMetadata.timezone)
+                        }
+                        .font(.subheadline)
+                    }
+                } footer: {
+                    Text("Helps developers diagnose issues on your device.")
+                }
+
+                // Submit
+                Section {
                     Button {
                         Task { await submitFeedback() }
                     } label: {
-                        Group {
+                        HStack {
+                            Spacer()
                             if isSubmitting {
                                 ProgressView()
-                                    .tint(Color(uiColor: .systemBackground))
                             } else {
-                                Text("Send Feedback")
-                                    .font(.subheadline)
+                                Text("Submit")
                                     .fontWeight(.semibold)
                             }
+                            Spacer()
                         }
-                        .frame(maxWidth: .infinity)
-                        .frame(height: 44)
-                        .foregroundStyle(Color(uiColor: .systemBackground))
-                        .background(Color.primary)
-                        .clipShape(RoundedRectangle(cornerRadius: 10))
                     }
                     .disabled(!canSubmit)
-                    .opacity(canSubmit ? 1 : 0.4)
-                    .padding(.horizontal)
-                    .padding(.top, 10)
-                    .padding(.bottom, 16)
                 }
-                .background(theme.backgroundColor)
             }
-            .background(theme.backgroundColor)
             .navigationTitle("Feedback")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -367,14 +230,6 @@ struct FeedbackView: View {
         }
     }
 
-    // MARK: - UI Components
-
-    private var divider: some View {
-        Rectangle()
-            .fill(Color.primary.opacity(0.1))
-            .frame(height: 1)
-    }
-
     // MARK: - Actions
 
     @MainActor
@@ -391,7 +246,8 @@ struct FeedbackView: View {
                 image: imageData,
                 email: email.isEmpty ? nil : email,
                 type: type,
-                metadata: customMetadata
+                metadata: customMetadata,
+                includeDeviceInfo: includeDeviceInfo
             )
 
             showSuccess = true
@@ -432,6 +288,23 @@ struct FeedbackView: View {
         imageData = data
         if let uiImage = UIImage(data: data) {
             imageThumbnail = Image(uiImage: uiImage)
+        }
+    }
+}
+
+// MARK: - Device Info Row
+
+private struct DeviceInfoRow: View {
+    let label: String
+    let value: String
+
+    var body: some View {
+        HStack {
+            Text(label)
+                .foregroundStyle(.secondary)
+            Spacer()
+            Text(value)
+                .foregroundStyle(.primary)
         }
     }
 }
