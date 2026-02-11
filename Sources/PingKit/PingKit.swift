@@ -1,3 +1,4 @@
+import ImageIO
 import SwiftUI
 
 /// PingKit — Lightweight in-app feedback SDK for iOS.
@@ -121,10 +122,11 @@ public enum PingKit {
         if let email { custom["_email"] = email }
         if let type { custom["_type"] = type }
 
-        // Compress image to under 1 MB
+        // Strip EXIF/GPS metadata, then compress to under 1 MB
         var imageData = image
         if let data = imageData {
-            imageData = compressImage(data, targetBytes: 1_048_576)
+            let stripped = stripImageMetadata(data)
+            imageData = compressImage(stripped, targetBytes: 1_048_576)
         }
 
         // Generate App Attest assertion
@@ -151,6 +153,46 @@ public enum PingKit {
             attestAssertion: attestAssertion,
             attestKeyId: attestKeyId
         )
+    }
+
+    // MARK: - EXIF Metadata Stripping
+
+    static func stripImageMetadata(_ data: Data) -> Data {
+        guard let source = CGImageSourceCreateWithData(data as CFData, nil),
+              let uti = CGImageSourceGetType(source) else {
+            return data
+        }
+
+        let mutableData = NSMutableData()
+        guard let destination = CGImageDestinationCreateWithData(mutableData, uti, 1, nil) else {
+            return data
+        }
+
+        // Copy existing properties so we can selectively remove metadata
+        let sourceProperties = CGImageSourceCopyPropertiesAtIndex(source, 0, nil) as? [CFString: Any] ?? [:]
+        var cleaned = sourceProperties
+
+        // Remove privacy-sensitive metadata dictionaries
+        let keysToRemove: [CFString] = [
+            kCGImagePropertyExifDictionary,
+            kCGImagePropertyGPSDictionary,
+            kCGImagePropertyIPTCDictionary,
+            kCGImagePropertyTIFFDictionary,
+            kCGImagePropertyJFIFDictionary,
+            kCGImagePropertyExifAuxDictionary,
+            kCGImagePropertyMakerAppleDictionary,
+        ]
+        for key in keysToRemove {
+            cleaned[key] = kCFNull
+        }
+
+        CGImageDestinationAddImageFromSource(destination, source, 0, cleaned as CFDictionary)
+
+        guard CGImageDestinationFinalize(destination) else {
+            return data
+        }
+
+        return mutableData as Data
     }
 
     // MARK: - Image Compression
