@@ -121,10 +121,10 @@ public enum PingKit {
         if let email { custom["_email"] = email }
         if let type { custom["_type"] = type }
 
-        // Compress image if needed
+        // Compress image to under 1 MB
         var imageData = image
-        if let data = imageData, Double(data.count) > options.maxImageSizeMB * 1_048_576 {
-            imageData = compressImage(data, targetSizeMB: options.maxImageSizeMB)
+        if let data = imageData {
+            imageData = compressImage(data, targetBytes: 1_048_576)
         }
 
         // Generate App Attest assertion
@@ -155,9 +155,8 @@ public enum PingKit {
 
     // MARK: - Image Compression
 
-    private static func compressImage(_ data: Data, targetSizeMB: Double) -> Data? {
+    private static func compressImage(_ data: Data, targetBytes: Int) -> Data? {
         guard let image = UIImage(data: data) else { return data }
-        let targetBytes = Int(targetSizeMB * 1_048_576)
         var quality: CGFloat = 0.7
         var compressed = image.jpegData(compressionQuality: quality)
         while let c = compressed, c.count > targetBytes, quality > 0.1 {
