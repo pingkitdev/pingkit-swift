@@ -14,6 +14,7 @@ public enum PingKit {
     public internal(set) static var apiKey: String?
     public internal(set) static var options = PingKitOptions()
     public internal(set) static var theme = PingKitTheme()
+    static var httpClient: HTTPClient = URLSession.shared
     private static let attestManager = AppAttestManager()
 
     // MARK: - Configure
@@ -150,13 +151,14 @@ public enum PingKit {
             endpoint: options.endpoint,
             apiKey: apiKey,
             attestAssertion: attestAssertion,
-            attestKeyId: attestKeyId
+            attestKeyId: attestKeyId,
+            httpClient: Self.httpClient
         )
     }
 
     // MARK: - Image Compression
 
-    private static func compressImage(_ data: Data, targetBytes: Int) -> Data? {
+    static func compressImage(_ data: Data, targetBytes: Int) -> Data? {
         guard let image = UIImage(data: data) else { return data }
         var quality: CGFloat = 0.7
         var compressed = image.jpegData(compressionQuality: quality)

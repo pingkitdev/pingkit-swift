@@ -9,7 +9,8 @@ enum APIClient {
         endpoint: String,
         apiKey: String,
         attestAssertion: String?,
-        attestKeyId: String?
+        attestKeyId: String?,
+        httpClient: HTTPClient = URLSession.shared
     ) async throws -> FeedbackResult {
         let url = URL(string: "\(endpoint)/v1/feedback")!
 
@@ -71,7 +72,7 @@ enum APIClient {
         let data: Data
         let response: URLResponse
         do {
-            (data, response) = try await URLSession.shared.data(for: request)
+            (data, response) = try await httpClient.data(for: request)
         } catch let error as URLError {
             throw PingKitError.networkError(error)
         }
@@ -109,12 +110,12 @@ enum APIClient {
 
 // MARK: - Response types
 
-private struct SubmitResponse: Decodable {
+struct SubmitResponse: Decodable {
     let id: String
     let status: String
 }
 
-private struct ErrorResponse: Decodable {
+struct ErrorResponse: Decodable {
     let error: ErrorDetail
 
     struct ErrorDetail: Decodable {

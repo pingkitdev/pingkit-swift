@@ -268,26 +268,9 @@ struct FeedbackView: View {
             try? await Task.sleep(for: .seconds(1.5))
             dismiss()
         } catch let error as PingKitError {
-            switch error {
-            case .rateLimited:
-                errorMessage = "Too many submissions. Please try again later."
-            case .planLimitReached:
-                errorMessage = "Feedback limit reached. Please try again later."
-            case .unauthorized:
-                errorMessage = "Unable to send feedback. Please try again."
-                if PingKit.options.verbose { print("[PingKit] Warning: Invalid API key") }
-            case .invalidInput(let msg):
-                errorMessage = msg
-            case .imageTooLarge:
-                errorMessage = "Image is too large. Please choose a smaller image."
-            case .networkError:
-                errorMessage = "Network error. Please check your connection and try again."
-            case .serverError(_, let message):
-                errorMessage = message
-            case .notConfigured:
-                errorMessage = "Feedback is temporarily unavailable."
-            case .attestRequired:
-                errorMessage = "Device verification required."
+            errorMessage = userMessage(for: error)
+            if case .unauthorized = error, PingKit.options.verbose {
+                print("[PingKit] Warning: Invalid API key")
             }
         } catch {
             errorMessage = "Something went wrong. Please try again."

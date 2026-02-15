@@ -1,0 +1,66 @@
+#!/bin/bash
+set -e
+
+REPO_ROOT="$(git rev-parse --show-toplevel)"
+DEST='platform=iOS Simulator,name=iPhone 16 Pro'
+COMMON_FLAGS="DEVELOPMENT_TEAM= CODE_SIGNING_ALLOWED=NO -quiet"
+
+# --- Secrets / personal data check ---
+echo "Pre-commit: checking for sensitive data..."
+
+STAGED_FILES=$(git diff --cached --name-only --diff-filter=ACM)
+FAILED=0
+
+for file in $STAGED_FILES; do
+  # Skip binary files
+  if file "$file" | grep -q "binary"; then
+    continue
+  fi
+
+  # Check for DEVELOPMENT_TEAM with a real value (not empty)
+  if grep -qE 'DEVELOPMENT_TEAM\s*=\s*[A-Z0-9]{10}' "$file" 2>/dev/null; then
+    echo "  BLOCKED: $file contains a DEVELOPMENT_TEAM ID"
+    FAILED=1
+  fi
+
+  # Check for real API keys (pk_proj_ or pk_live_), excluding obvious test/placeholder values
+  if grep -E 'pk_(proj|live)_[A-Za-z0-9]{10,}' "$file" 2>/dev/null \
+     | grep -vqE 'pk_(proj|live)_(xxxx|test|INVALID|myspecial|first|second)'; then
+    echo "  BLOCKED: $file contains what looks like a PingKit API key"
+    FAILED=1
+  fi
+
+  # Check for common secret patterns
+  if grep -qiE '(secret|password|token|credential)s?\s*[:=]\s*["\x27][^\s"'\'']{8,}' "$file" 2>/dev/null; then
+    echo "  WARNING: $file may contain secrets — review before committing"
+  fi
+done
+
+if [ "$FAILED" -ne 0 ]; then
+  echo "Pre-commit: FAILED — remove sensitive data before committing."
+  exit 1
+fi
+
+echo "Pre-commit: no sensitive data found."
+
+# --- Build checks ---
+echo "Pre-commit: building PingKit SDK..."
+xcodebuild build \
+  -scheme PingKit \
+  -destination "$DEST" \
+  $COMMON_FLAGS
+
+echo "Pre-commit: building Example app..."
+xcodebuild build \
+  -scheme PingKitTest \
+  -project "$REPO_ROOT/Example/PingKitTest.xcodeproj" \
+  -destination "$DEST" \
+  $COMMON_FLAGS
+
+echo "Pre-commit: running SDK tests..."
+xcodebuild test \
+  -scheme PingKit \
+  -destination "$DEST" \
+  $COMMON_FLAGS
+
+echo "Pre-commit: all checks passed."
