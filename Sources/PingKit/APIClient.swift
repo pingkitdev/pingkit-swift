@@ -68,7 +68,13 @@ enum APIClient {
             request.setValue(attestKeyId, forHTTPHeaderField: "X-Apple-Attest-Key-Id")
         }
 
-        let (data, response) = try await URLSession.shared.data(for: request)
+        let data: Data
+        let response: URLResponse
+        do {
+            (data, response) = try await URLSession.shared.data(for: request)
+        } catch let error as URLError {
+            throw PingKitError.networkError(error)
+        }
 
         guard let httpResponse = response as? HTTPURLResponse else {
             throw PingKitError.networkError(URLError(.badServerResponse))

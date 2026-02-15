@@ -51,7 +51,7 @@ public enum PingKit {
         metadata: [String: String]? = nil
     ) {
         guard apiKey != nil else {
-            print("[PingKit] Warning: PingKit.show() called before configure(). Ignoring.")
+            if options.verbose { print("[PingKit] Warning: PingKit.show() called before configure(). Ignoring.") }
             return
         }
 
@@ -59,7 +59,7 @@ public enum PingKit {
               let window = scene.windows.first(where: { $0.isKeyWindow }),
               let rootVC = window.rootViewController?.topMostViewController()
         else {
-            print("[PingKit] Warning: Could not find a view controller to present from.")
+            if options.verbose { print("[PingKit] Warning: Could not find a view controller to present from.") }
             return
         }
 
@@ -75,6 +75,7 @@ public enum PingKit {
         if let sheet = hostingController.sheetPresentationController {
             sheet.detents = [.large()]
             sheet.prefersEdgeAttachedInCompactHeight = true
+            sheet.preferredCornerRadius = theme.cornerRadius
         }
 
         rootVC.present(hostingController, animated: true)
@@ -137,7 +138,7 @@ public enum PingKit {
                     attestKeyId = result.keyId
                 }
             } catch {
-                print("[PingKit] App Attest assertion failed: \(error.localizedDescription)")
+                if options.verbose { print("[PingKit] App Attest assertion failed: \(error.localizedDescription)") }
             }
         }
 
