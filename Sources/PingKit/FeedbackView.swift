@@ -68,6 +68,7 @@ struct FeedbackView: View {
                             }
                         }
                     }
+                    .cardBackground(theme.cardColor)
                 }
 
                 // Feedback text
@@ -87,6 +88,7 @@ struct FeedbackView: View {
                     Text("\(feedbackText.count)/5000")
                         .frame(maxWidth: .infinity, alignment: .trailing)
                 }
+                .cardBackground(theme.cardColor)
 
                 // Email
                 if emailMode != nil {
@@ -101,9 +103,12 @@ struct FeedbackView: View {
                             Text("Email")
                             if case .required = emailMode {
                                 Text("(required)")
+                            } else if case .optional = emailMode {
+                                Text("(optional)")
                             }
                         }
                     }
+                    .cardBackground(theme.cardColor)
                 }
 
                 // Screenshot
@@ -150,6 +155,7 @@ struct FeedbackView: View {
                         )
                     }
                 }
+                .cardBackground(theme.cardColor)
 
                 // Error
                 if let errorMessage {
@@ -161,6 +167,7 @@ struct FeedbackView: View {
                                 .foregroundStyle(.red)
                         }
                     }
+                    .cardBackground(theme.cardColor)
                 }
 
                 // Success
@@ -173,6 +180,7 @@ struct FeedbackView: View {
                                 .foregroundStyle(.green)
                         }
                     }
+                    .cardBackground(theme.cardColor)
                 }
 
                 // Device info
@@ -192,6 +200,7 @@ struct FeedbackView: View {
                 } footer: {
                     Text("Helps developers diagnose issues on your device.")
                 }
+                .cardBackground(theme.cardColor)
 
                 // Submit
                 Section {
@@ -211,6 +220,7 @@ struct FeedbackView: View {
                     }
                     .disabled(!canSubmit)
                 }
+                .cardBackground(theme.cardColor)
             }
             .navigationTitle("Feedback")
             .navigationBarTitleDisplayMode(.inline)
@@ -219,6 +229,10 @@ struct FeedbackView: View {
                     Button("Cancel") { dismiss() }
                 }
             }
+            .scrollContentBackground(.hidden)
+            .background(theme.backgroundColor)
+            .tint(theme.accentColor)
+            .font(theme.font)
             .onChange(of: selectedPhoto) { newValue in
                 Task { await loadImage(from: newValue) }
             }
@@ -261,7 +275,7 @@ struct FeedbackView: View {
                 errorMessage = "Feedback limit reached. Please try again later."
             case .unauthorized:
                 errorMessage = "Unable to send feedback. Please try again."
-                print("[PingKit] Warning: Invalid API key")
+                if PingKit.options.verbose { print("[PingKit] Warning: Invalid API key") }
             case .invalidInput(let msg):
                 errorMessage = msg
             case .imageTooLarge:
@@ -277,6 +291,7 @@ struct FeedbackView: View {
             }
         } catch {
             errorMessage = "Something went wrong. Please try again."
+            if PingKit.options.verbose { print("[PingKit] Unexpected error: \(error)") }
         }
 
         isSubmitting = false
@@ -288,6 +303,19 @@ struct FeedbackView: View {
         imageData = data
         if let uiImage = UIImage(data: data) {
             imageThumbnail = Image(uiImage: uiImage)
+        }
+    }
+}
+
+// MARK: - Conditional List Row Background
+
+private extension View {
+    @ViewBuilder
+    func cardBackground(_ color: Color?) -> some View {
+        if let color {
+            self.listRowBackground(color)
+        } else {
+            self
         }
     }
 }

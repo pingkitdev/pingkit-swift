@@ -8,6 +8,9 @@ public struct PingKitTheme: Sendable {
     /// Background color of the feedback modal.
     public let backgroundColor: Color
 
+    /// Background color for form section cards. When nil, uses iOS default.
+    public let cardColor: Color?
+
     /// Corner radius of the modal sheet.
     public let cornerRadius: CGFloat
 
@@ -17,11 +20,13 @@ public struct PingKitTheme: Sendable {
     public init(
         accentColor: Color = .accentColor,
         backgroundColor: Color = Color(uiColor: .systemBackground),
+        cardColor: Color? = nil,
         cornerRadius: CGFloat = 20,
         font: Font = .body
     ) {
         self.accentColor = accentColor
         self.backgroundColor = backgroundColor
+        self.cardColor = cardColor
         self.cornerRadius = cornerRadius
         self.font = font
     }
