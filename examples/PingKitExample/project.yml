@@ -1,0 +1,35 @@
+name: PingKitTest
+options:
+  bundleIdPrefix: com.pingkittest
+  deploymentTarget:
+    iOS: "16.0"
+  xcodeVersion: "15.0"
+  generateEmptyDirectories: true
+
+packages:
+  PingKit:
+    path: ../../
+
+targets:
+  PingKitTest:
+    type: application
+    platform: iOS
+    sources:
+      - PingKitTest
+    dependencies:
+      - package: PingKit
+    settings:
+      base:
+        GENERATE_INFOPLIST_FILE: true
+        SWIFT_VERSION: "5.9"
+        TARGETED_DEVICE_FAMILY: "1,2"
+        INFOPLIST_KEY_UIApplicationSceneManifest_Generation: true
+        INFOPLIST_KEY_UILaunchScreen_Generation: true
+        INFOPLIST_KEY_CFBundleDisplayName: "PingKit Tester"
+        MARKETING_VERSION: "1.0.0"
+        CURRENT_PROJECT_VERSION: "1"
+      configs:
+        Debug:
+          SWIFT_OPTIMIZATION_LEVEL: "-Onone"
+        Release:
+          SWIFT_OPTIMIZATION_LEVEL: "-O"
