@@ -20,7 +20,6 @@ struct ModalTab: View {
 
                 if enableTypePicker {
                     TextField("Types (comma-separated)", text: $customTypes)
-                        .textFieldStyle(.roundedBorder)
                 }
             } header: {
                 Text("Modal Options")
@@ -55,7 +54,7 @@ struct ModalTab: View {
                 .buttonStyle(.bordered)
                 .disabled(PingKit.apiKey == nil)
             } header: {
-                Text("Direct API (opens new window)")
+                Text("Direct API (shows feedback sheet)")
             }
         }
         .formStyle(.grouped)

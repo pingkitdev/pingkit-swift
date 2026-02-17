@@ -7,6 +7,10 @@ extension XCTestCase {
         PingKit.options = PingKitOptions()
         PingKit.theme = PingKitTheme()
         PingKit.httpClient = URLSession.shared
+        #if os(macOS)
+        PingKit.sheetWindow = nil
+        PingKit.isShowingFeedback = false
+        #endif
     }
 
     func configurePingKit(

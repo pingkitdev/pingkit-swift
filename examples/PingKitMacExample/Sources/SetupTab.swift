@@ -11,7 +11,6 @@ struct SetupTab: View {
         Form {
             Section {
                 TextField("API Key", text: $apiKey)
-                    .textFieldStyle(.roundedBorder)
 
                 Toggle("Verbose Logging", isOn: $verbose)
                 Toggle("App Attest (iOS only)", isOn: $enableAppAttest)

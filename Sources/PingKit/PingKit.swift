@@ -22,6 +22,11 @@ public enum PingKit {
     static var httpClient: HTTPClient = URLSession.shared
     private static let attestManager = AppAttestManager()
 
+    #if os(macOS)
+    static var sheetWindow: NSWindow?
+    static var isShowingFeedback = false
+    #endif
+
     // MARK: - Configure
 
     /// Configure PingKit with your API key. Call once at app launch.
@@ -88,20 +93,55 @@ public enum PingKit {
         rootVC.present(hostingController, animated: true)
 
         #elseif os(macOS)
-        let hostingView = NSHostingView(rootView: feedbackView)
-        let window = NSWindow(
+        guard !isShowingFeedback else { return }
+
+        guard let parentWindow = NSApp.keyWindow ?? NSApp.windows.first(where: { $0.isVisible }) else {
+            if options.verbose { print("[PingKit] Warning: Could not find a window to present from.") }
+            return
+        }
+
+        isShowingFeedback = true
+
+        let feedbackViewWithDismiss = FeedbackView(
+            emailMode: email,
+            typeMode: type,
+            customMetadata: metadata,
+            onDismiss: { dismissFeedbackSheet() }
+        )
+
+        let hostingView = NSHostingView(rootView: feedbackViewWithDismiss)
+        let sheet = NSWindow(
             contentRect: NSRect(x: 0, y: 0, width: 480, height: 600),
             styleMask: [.titled, .closable, .resizable],
             backing: .buffered,
             defer: false
         )
-        window.contentView = hostingView
-        window.title = "Feedback"
-        window.center()
-        window.isReleasedWhenClosed = false
-        window.makeKeyAndOrderFront(nil)
+        sheet.contentView = hostingView
+        sheet.title = "Feedback"
+        sheet.isReleasedWhenClosed = false
+        sheetWindow = sheet
+
+        parentWindow.beginSheet(sheet) { _ in
+            cleanUpFeedbackSheet()
+        }
         #endif
     }
+
+    // MARK: - macOS Sheet Helpers
+
+    #if os(macOS)
+    @MainActor
+    static func dismissFeedbackSheet() {
+        guard let sheet = sheetWindow,
+              let parent = sheet.sheetParent else { return }
+        parent.endSheet(sheet)
+    }
+
+    static func cleanUpFeedbackSheet() {
+        sheetWindow = nil
+        isShowingFeedback = false
+    }
+    #endif
 
     // MARK: - Submit (Tier 3 — Headless)
 

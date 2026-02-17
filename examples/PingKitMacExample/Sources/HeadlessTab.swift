@@ -37,9 +37,7 @@ struct HeadlessTab: View {
             Section {
                 HStack {
                     TextField("Key", text: $metadataKey)
-                        .textFieldStyle(.roundedBorder)
                     TextField("Value", text: $metadataValue)
-                        .textFieldStyle(.roundedBorder)
                     Button("Add") {
                         guard !metadataKey.isEmpty else { return }
                         customMetadata[metadataKey] = metadataValue

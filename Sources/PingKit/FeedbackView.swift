@@ -5,8 +5,17 @@ struct FeedbackView: View {
     let emailMode: EmailMode?
     let typeMode: TypeMode?
     let customMetadata: [String: String]?
+    var onDismiss: (() -> Void)? = nil
 
     @Environment(\.dismiss) private var dismiss
+
+    private func performDismiss() {
+        if let onDismiss {
+            onDismiss()
+        } else {
+            dismiss()
+        }
+    }
 
     @State private var feedbackText = ""
     @State private var emailText = ""
@@ -234,7 +243,7 @@ struct FeedbackView: View {
             #endif
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel") { dismiss() }
+                    Button("Cancel") { performDismiss() }
                 }
             }
             #if os(iOS)
@@ -276,7 +285,7 @@ struct FeedbackView: View {
 
             showSuccess = true
             try? await Task.sleep(for: .seconds(1.5))
-            dismiss()
+            performDismiss()
         } catch let error as PingKitError {
             errorMessage = userMessage(for: error)
             if case .unauthorized = error, PingKit.options.verbose {
