@@ -5,8 +5,17 @@ struct FeedbackView: View {
     let emailMode: EmailMode?
     let typeMode: TypeMode?
     let customMetadata: [String: String]?
+    var onDismiss: (() -> Void)? = nil
 
     @Environment(\.dismiss) private var dismiss
+
+    private func performDismiss() {
+        if let onDismiss {
+            onDismiss()
+        } else {
+            dismiss()
+        }
+    }
 
     @State private var feedbackText = ""
     @State private var emailText = ""
@@ -94,10 +103,12 @@ struct FeedbackView: View {
                 if emailMode != nil {
                     Section {
                         TextField("you@example.com", text: $emailText)
+                            #if os(iOS)
                             .keyboardType(.emailAddress)
                             .textContentType(.emailAddress)
-                            .autocorrectionDisabled()
                             .textInputAutocapitalization(.never)
+                            #endif
+                            .autocorrectionDisabled()
                     } header: {
                         HStack(spacing: 2) {
                             Text("Email")
@@ -190,7 +201,11 @@ struct FeedbackView: View {
                     if includeDeviceInfo {
                         DisclosureGroup("Data collected") {
                             DeviceInfoRow(label: "Device", value: deviceMetadata.deviceModel)
+                            #if os(iOS)
                             DeviceInfoRow(label: "OS", value: "iOS \(deviceMetadata.osVersion)")
+                            #elseif os(macOS)
+                            DeviceInfoRow(label: "OS", value: "macOS \(deviceMetadata.osVersion)")
+                            #endif
                             DeviceInfoRow(label: "App Version", value: "\(deviceMetadata.appVersion) (\(deviceMetadata.appBuild))")
                             DeviceInfoRow(label: "Locale", value: deviceMetadata.locale)
                             DeviceInfoRow(label: "Timezone", value: deviceMetadata.timezone)
@@ -223,13 +238,17 @@ struct FeedbackView: View {
                 .cardBackground(theme.cardColor)
             }
             .navigationTitle("Feedback")
+            #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
+            #endif
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel") { dismiss() }
+                    Button("Cancel") { performDismiss() }
                 }
             }
+            #if os(iOS)
             .scrollContentBackground(.hidden)
+            #endif
             .background(theme.backgroundColor)
             .tint(theme.accentColor)
             .font(theme.font)
@@ -266,28 +285,11 @@ struct FeedbackView: View {
 
             showSuccess = true
             try? await Task.sleep(for: .seconds(1.5))
-            dismiss()
+            performDismiss()
         } catch let error as PingKitError {
-            switch error {
-            case .rateLimited:
-                errorMessage = "Too many submissions. Please try again later."
-            case .planLimitReached:
-                errorMessage = "Feedback limit reached. Please try again later."
-            case .unauthorized:
-                errorMessage = "Unable to send feedback. Please try again."
-                if PingKit.options.verbose { print("[PingKit] Warning: Invalid API key") }
-            case .invalidInput(let msg):
-                errorMessage = msg
-            case .imageTooLarge:
-                errorMessage = "Image is too large. Please choose a smaller image."
-            case .networkError:
-                errorMessage = "Network error. Please check your connection and try again."
-            case .serverError(_, let message):
-                errorMessage = message
-            case .notConfigured:
-                errorMessage = "Feedback is temporarily unavailable."
-            case .attestRequired:
-                errorMessage = "Device verification required."
+            errorMessage = userMessage(for: error)
+            if case .unauthorized = error, PingKit.options.verbose {
+                print("[PingKit] Warning: Invalid API key")
             }
         } catch {
             errorMessage = "Something went wrong. Please try again."
@@ -301,9 +303,15 @@ struct FeedbackView: View {
         guard let item else { return }
         guard let data = try? await item.loadTransferable(type: Data.self) else { return }
         imageData = data
+        #if os(iOS)
         if let uiImage = UIImage(data: data) {
             imageThumbnail = Image(uiImage: uiImage)
         }
+        #elseif os(macOS)
+        if let nsImage = NSImage(data: data) {
+            imageThumbnail = Image(nsImage: nsImage)
+        }
+        #endif
     }
 }
 

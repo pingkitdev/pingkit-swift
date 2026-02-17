@@ -1,6 +1,11 @@
 import SwiftUI
+#if canImport(UIKit)
+import UIKit
+#elseif canImport(AppKit)
+import AppKit
+#endif
 
-/// PingKit — Lightweight in-app feedback SDK for iOS.
+/// PingKit — Lightweight in-app feedback SDK.
 ///
 /// Usage:
 /// ```swift
@@ -14,7 +19,13 @@ public enum PingKit {
     public internal(set) static var apiKey: String?
     public internal(set) static var options = PingKitOptions()
     public internal(set) static var theme = PingKitTheme()
+    static var httpClient: HTTPClient = URLSession.shared
     private static let attestManager = AppAttestManager()
+
+    #if os(macOS)
+    static var sheetWindow: NSWindow?
+    static var isShowingFeedback = false
+    #endif
 
     // MARK: - Configure
 
@@ -28,7 +39,7 @@ public enum PingKit {
         self.options = options
         self.theme = theme
 
-        // Prepare App Attest in background
+        // Prepare App Attest in background (iOS only)
         if options.enableAppAttest {
             Task {
                 try? await attestManager.prepare()
@@ -38,7 +49,7 @@ public enum PingKit {
 
     // MARK: - Show (Tier 1 & 2)
 
-    /// Present the feedback modal from the topmost view controller.
+    /// Present the feedback modal.
     ///
     /// - Parameters:
     ///   - email: Email field configuration. Default: hidden.
@@ -55,6 +66,13 @@ public enum PingKit {
             return
         }
 
+        let feedbackView = FeedbackView(
+            emailMode: email,
+            typeMode: type,
+            customMetadata: metadata
+        )
+
+        #if os(iOS)
         guard let scene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
               let window = scene.windows.first(where: { $0.isKeyWindow }),
               let rootVC = window.rootViewController?.topMostViewController()
@@ -62,12 +80,6 @@ public enum PingKit {
             if options.verbose { print("[PingKit] Warning: Could not find a view controller to present from.") }
             return
         }
-
-        let feedbackView = FeedbackView(
-            emailMode: email,
-            typeMode: type,
-            customMetadata: metadata
-        )
 
         let hostingController = UIHostingController(rootView: feedbackView)
         hostingController.modalPresentationStyle = .pageSheet
@@ -79,7 +91,57 @@ public enum PingKit {
         }
 
         rootVC.present(hostingController, animated: true)
+
+        #elseif os(macOS)
+        guard !isShowingFeedback else { return }
+
+        guard let parentWindow = NSApp.keyWindow ?? NSApp.windows.first(where: { $0.isVisible }) else {
+            if options.verbose { print("[PingKit] Warning: Could not find a window to present from.") }
+            return
+        }
+
+        isShowingFeedback = true
+
+        let feedbackViewWithDismiss = FeedbackView(
+            emailMode: email,
+            typeMode: type,
+            customMetadata: metadata,
+            onDismiss: { dismissFeedbackSheet() }
+        )
+
+        let hostingView = NSHostingView(rootView: feedbackViewWithDismiss)
+        let sheet = NSWindow(
+            contentRect: NSRect(x: 0, y: 0, width: 480, height: 600),
+            styleMask: [.titled, .closable, .resizable],
+            backing: .buffered,
+            defer: false
+        )
+        sheet.contentView = hostingView
+        sheet.title = "Feedback"
+        sheet.isReleasedWhenClosed = false
+        sheetWindow = sheet
+
+        parentWindow.beginSheet(sheet) { _ in
+            cleanUpFeedbackSheet()
+        }
+        #endif
     }
+
+    // MARK: - macOS Sheet Helpers
+
+    #if os(macOS)
+    @MainActor
+    static func dismissFeedbackSheet() {
+        guard let sheet = sheetWindow,
+              let parent = sheet.sheetParent else { return }
+        parent.endSheet(sheet)
+    }
+
+    static func cleanUpFeedbackSheet() {
+        sheetWindow = nil
+        isShowingFeedback = false
+    }
+    #endif
 
     // MARK: - Submit (Tier 3 — Headless)
 
@@ -150,13 +212,15 @@ public enum PingKit {
             endpoint: options.endpoint,
             apiKey: apiKey,
             attestAssertion: attestAssertion,
-            attestKeyId: attestKeyId
+            attestKeyId: attestKeyId,
+            httpClient: Self.httpClient
         )
     }
 
     // MARK: - Image Compression
 
-    private static func compressImage(_ data: Data, targetBytes: Int) -> Data? {
+    static func compressImage(_ data: Data, targetBytes: Int) -> Data? {
+        #if os(iOS)
         guard let image = UIImage(data: data) else { return data }
         var quality: CGFloat = 0.7
         var compressed = image.jpegData(compressionQuality: quality)
@@ -165,11 +229,25 @@ public enum PingKit {
             compressed = image.jpegData(compressionQuality: quality)
         }
         return compressed
+        #elseif os(macOS)
+        guard let image = NSImage(data: data),
+              let tiffData = image.tiffRepresentation,
+              let bitmap = NSBitmapImageRep(data: tiffData)
+        else { return data }
+        var quality: CGFloat = 0.7
+        var compressed = bitmap.representation(using: .jpeg, properties: [.compressionFactor: quality])
+        while let c = compressed, c.count > targetBytes, quality > 0.1 {
+            quality -= 0.1
+            compressed = bitmap.representation(using: .jpeg, properties: [.compressionFactor: quality])
+        }
+        return compressed
+        #endif
     }
 }
 
-// MARK: - UIViewController extension
+// MARK: - UIViewController extension (iOS only)
 
+#if os(iOS)
 extension UIViewController {
     func topMostViewController() -> UIViewController {
         if let presented = presentedViewController {
@@ -184,3 +262,4 @@ extension UIViewController {
         return self
     }
 }
+#endif
