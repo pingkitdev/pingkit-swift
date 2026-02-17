@@ -1,17 +1,26 @@
 import Foundation
+#if canImport(DeviceCheck)
 import DeviceCheck
+#endif
 import CryptoKit
 
 actor AppAttestManager {
     private var keyId: String?
     private var isAttested = false
+    #if os(iOS)
     private let service = DCAppAttestService.shared
+    #endif
 
     var isSupported: Bool {
+        #if os(iOS)
         service.isSupported
+        #else
+        false
+        #endif
     }
 
     func prepare() async throws {
+        #if os(iOS)
         guard service.isSupported else { return }
 
         // Check Keychain for existing key ID
@@ -26,9 +35,11 @@ actor AppAttestManager {
         let newKeyId = try await service.generateKey()
         keyId = newKeyId
         KeychainHelper.save(key: "pingkit_attest_key_id", value: newKeyId)
+        #endif
     }
 
     func generateAssertion(for bodyData: Data) async throws -> (assertion: String, keyId: String)? {
+        #if os(iOS)
         guard service.isSupported, let keyId else { return nil }
 
         // Attest the key if not yet attested
@@ -44,6 +55,9 @@ actor AppAttestManager {
 
         let assertion = try await service.generateAssertion(keyId, clientDataHash: clientDataHash)
         return (assertion: assertion.base64EncodedString(), keyId: keyId)
+        #else
+        return nil
+        #endif
     }
 }
 
